@@ -1,7 +1,5 @@
-﻿FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
-WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+﻿#FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
+#WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:6.0 AS build
 WORKDIR /src
@@ -11,9 +9,9 @@ COPY . .
 RUN dotnet build "DiscordbotTest7.csproj" -c Release -o /app/build # -r linux-arm
 
 FROM build AS publish
-RUN dotnet publish "DiscordbotTest7.csproj" -c Release -o /app/publish # -r linux-arm
+RUN dotnet publish "DiscordbotTest7.csproj" -c Release -o /app/publish --self-contained -r linux-x64 # -r linux-arm
 
-FROM base AS final
+FROM alpine AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "DiscordbotTest7.dll"]
+CMD ["ls -laF"]

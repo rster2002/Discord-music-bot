@@ -1,0 +1,6 @@
+﻿services:
+  lavalink:
+    build: ./Lavalink
+
+  application:
+    build: ./DiscordbotTest7
