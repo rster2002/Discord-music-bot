@@ -381,14 +381,6 @@ namespace DiscordbotTest7.Core.Managers
         {
             Console.WriteLine($"Finished playing: [{args.Track.Title}]");
 
-            if (loopPlaylist)
-            {
-                args.Player.Vueue.Enqueue(args.Track);
-                Console.WriteLine($"Now playing: *{args.Track.Title}* by *{args.Track.Author}*");
-                return;
-            }
-
-
             if (loop)
             {
                 await args.Player.PlayAsync(args.Track);
@@ -407,6 +399,11 @@ namespace DiscordbotTest7.Core.Managers
             {
                 await args.Player.TextChannel.SendMessageAsync("Next item in *'Vueue'* is not a track");
                 return;
+            }
+
+            if (loopPlaylist)
+            {
+                args.Player.Vueue.Enqueue(args.Track);
             }
 
             await args.Player.PlayAsync(track);
