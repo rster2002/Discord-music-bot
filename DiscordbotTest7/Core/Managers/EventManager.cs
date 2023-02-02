@@ -40,8 +40,7 @@ namespace DiscordbotTest7.Core.Managers
 
             if (message.Author.IsBot || message.Channel is IDMChannel) return;
 
-            
-            Console.WriteLine($"[{DateTime.Now}]\t{message.HasCharPrefix('?', ref argPos).ToString()}");
+            //Console.WriteLine($"[{DateTime.Now}]\t{message.HasCharPrefix('?', ref argPos).ToString()}");
 
             if (!(message.HasCharPrefix(ConfigManager.Config.Prefix, ref argPos) || message.HasMentionPrefix(_client.CurrentUser, ref argPos))) return;
 

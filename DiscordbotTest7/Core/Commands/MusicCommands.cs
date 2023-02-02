@@ -41,13 +41,24 @@ namespace DiscordbotTest7.Core.Commands
         public async Task VolumeCommand(ushort i)
             => await Context.Channel.SendMessageAsync(await AudioManager.VolumeAsync(i, Context.Guild));
 
+        [Command("shuffle")]
+        public async Task ShuffleCommand()
+            => Context.Channel.SendMessageAsync(await AudioManager.ShuffleAsync(Context.Guild));
+
         [Command("seek")]
-        public async Task SeekCommand(TimeSpan t)
+        public async Task SeekCommand(string t)
             => await Context.Channel.SendMessageAsync(await AudioManager.SeekAsync(t, Context.Guild));
 
         [Command("queue")]
         public async Task QueueCommand()
             => await AudioManager.QueueAsync(Context.Guild, Context.Channel as ITextChannel);
+
+        [Command("goto")]
+        public async Task GotoCommand(int i)
+            => await Context.Channel.SendMessageAsync(await AudioManager.GotoAsync(Context.Guild, i));
+        [Command("goto")]
+        public async Task GotoCommand([Remainder] string i)
+            => await Context.Channel.SendMessageAsync(await AudioManager.GotoAsync(Context.Guild, i));
 
         [Command("loop")]
         public async Task LoopCommand()
@@ -61,6 +72,21 @@ namespace DiscordbotTest7.Core.Commands
             {
                 await Context.Channel.SendMessageAsync("Enabled looping");
                 AudioManager.loop = true;
+            }
+        }
+
+        [Command("loopplaylist")]
+        public async Task LoopPlaylistCommand()
+        {
+            if (AudioManager.loopPlaylist)
+            {
+                await Context.Channel.SendMessageAsync("Disabled playlist looping");
+                AudioManager.loopPlaylist = false;
+            }
+            else
+            {
+                await Context.Channel.SendMessageAsync("Enabled playlist looping");
+                AudioManager.loopPlaylist = true;
             }
         }
     }
