@@ -56,7 +56,11 @@ namespace DiscordbotTest7.Core
             await EventManager.LoadCommands();
             await _client.LoginAsync(TokenType.Bot, ConfigManager.Config.Token);
             await _client.StartAsync();
-            
+
+            AudioManager.loopPlaylist = false;
+            AudioManager.loop = false;
+            AudioManager.writePlaying = true;
+
             await Task.Delay(-1);
         }
     } 

@@ -12,6 +12,7 @@ namespace DiscordbotTest7.Core.Managers
 {
     public static class AudioManager
     {
+        public static bool writePlaying { get; set; }
         public static bool loopPlaylist { get; set; }
         public static bool loop { get; set; }
         private static bool fixVanDeEeuw;
@@ -191,6 +192,10 @@ namespace DiscordbotTest7.Core.Managers
             try
             {
                 await player.StopAsync();
+                if (player.Vueue.Count > 0)
+                {
+                    player.Vueue.Clear();
+                }
                 return "No longer playing anything.";
             }
             catch (Exception exception)
@@ -375,7 +380,21 @@ namespace DiscordbotTest7.Core.Managers
                 return ex.Message;
             }
         }
+        public static async Task AutoplayAsync()
+        {
+            _lavaNode.OnTrackEnd += TrackEnded;
+        }
+        public static Task OnTrackExceptionAsync(TrackExceptionEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            arg.Player.Vueue.Enqueue(arg.Track);
+            return arg.Player.TextChannel.SendMessageAsync($"{arg.Track} has been requeued because it threw an exception.");
+        }
 
+        public static Task OnTrackStuckAsync(TrackStuckEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            arg.Player.Vueue.Enqueue(arg.Track);
+            return arg.Player.TextChannel.SendMessageAsync($"{arg.Track} has been requeued because it got stuck.");
+        }
 
         public static async Task TrackEnded(TrackEndEventArg<LavaPlayer<LavaTrack>, LavaTrack> args)
         {
@@ -384,7 +403,8 @@ namespace DiscordbotTest7.Core.Managers
             if (loop)
             {
                 await args.Player.PlayAsync(args.Track);
-                Console.WriteLine($"Now playing: *{args.Track.Title}* by *{args.Track.Author}*");
+                if (writePlaying)
+                    Console.WriteLine($"Now playing: *{args.Track.Title}* by *{args.Track.Author}*");
                 return;
             }
 
@@ -407,7 +427,8 @@ namespace DiscordbotTest7.Core.Managers
             }
 
             await args.Player.PlayAsync(track);
-            await args.Player.TextChannel.SendMessageAsync($"Now playing: *{track.Title}* by *{track.Author}*");
+            if (writePlaying)
+                await args.Player.TextChannel.SendMessageAsync($"Now playing: *{track.Title}* by *{track.Author}*");
         }
     }
 }

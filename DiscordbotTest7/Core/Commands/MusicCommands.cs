@@ -67,11 +67,13 @@ namespace DiscordbotTest7.Core.Commands
             {
                 await Context.Channel.SendMessageAsync("Disabled looping");
                 AudioManager.loop = false;
+                AudioManager.writePlaying = true;
             }
             else
             {
                 await Context.Channel.SendMessageAsync("Enabled looping");
                 AudioManager.loop = true;
+                AudioManager.writePlaying = false;
             }
         }
 
@@ -82,11 +84,29 @@ namespace DiscordbotTest7.Core.Commands
             {
                 await Context.Channel.SendMessageAsync("Disabled playlist looping");
                 AudioManager.loopPlaylist = false;
+                AudioManager.writePlaying = true;
             }
             else
             {
                 await Context.Channel.SendMessageAsync("Enabled playlist looping");
                 AudioManager.loopPlaylist = true;
+                AudioManager.writePlaying = false;
+            }
+        }
+        [Command("verbose")]
+        public async Task VerboseCommand()
+        {
+            if (AudioManager.writePlaying)
+            {
+                AudioManager.writePlaying = false;
+                Console.WriteLine(AudioManager.writePlaying);
+                await Context.Channel.SendMessageAsync(AudioManager.writePlaying.ToString());
+            }
+            else
+            {
+                AudioManager.writePlaying = true;
+                Console.WriteLine(AudioManager.writePlaying);
+                await Context.Channel.SendMessageAsync(AudioManager.writePlaying.ToString());
             }
         }
     }
@@ -102,5 +122,10 @@ namespace DiscordbotTest7.Core.Commands
         [Summary("connects to lavalink")]
         public async Task Connect() 
             => await AudioManager.ConnectAsync();
+
+        [Command("autoplay")]
+        public async Task AutoPlay()
+            => await AudioManager.AutoplayAsync();
+        
     }
 }

@@ -64,6 +64,8 @@ namespace DiscordbotTest7.Core.Managers
             }
 
             _lavaNode.OnTrackEnd += AudioManager.TrackEnded;
+            _lavaNode.OnTrackStuck += AudioManager.OnTrackStuckAsync;
+            _lavaNode.OnTrackException += AudioManager.OnTrackExceptionAsync;
 
             Console.WriteLine($"[{DateTime.Now}]\t(READY)\tBot is ready");
             await _client.SetStatusAsync(Discord.UserStatus.Online);
