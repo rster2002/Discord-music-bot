@@ -316,7 +316,7 @@ namespace DiscordbotTest7.Core.Commands
             }
             if (command.Data.Name == "add")
             {
-                await AudioManager.addtoAsync(_client.GetGuild(command.GuildId.Value), command.Channel as ITextChannel, command.Data.Options.First().Value.ToString(), command.Data.Options.First().Value.ToString(), command.User as SocketGuildUser);
+                await AudioManager.addtoAsync(_client.GetGuild(command.GuildId.Value), command.Channel as ITextChannel, command.Data.Options.First().Value.ToString(), command.User as SocketGuildUser);
             }
         }
     }

@@ -605,7 +605,7 @@ namespace DiscordbotTest7.Core.Managers
             else
                 await textChannel.SendMessageAsync("Error 404");
         }
-        public static async Task addtoAsync(IGuild guild, ITextChannel textChannel, string? name)
+        public static async Task addtoAsync(IGuild guild, ITextChannel textChannel, string? name, SocketGuildUser user)
         {
             if (playlist == null) 
                 return;
