@@ -1,7 +1,9 @@
 ﻿using Discord;
+using Discord.Net;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using DiscordbotTest7.Core.Commands;
 using Victoria.Node;
 
 namespace DiscordbotTest7.Core.Managers
@@ -26,8 +28,10 @@ namespace DiscordbotTest7.Core.Managers
                 return Task.CompletedTask;
             };
 
-            _client.Ready += Onready;
+            _client.Ready += ready;
             _client.MessageReceived += OnMessageRecieved;
+            _client.SlashCommandExecuted += SlashCommands.SlashCommandHandler;
+
             return Task.CompletedTask;
         }
 
@@ -50,6 +54,12 @@ namespace DiscordbotTest7.Core.Managers
             {
                 if (result.Error == CommandError.UnknownCommand) return;
             }
+        }
+
+        private static async Task ready()
+        {
+            await Onready();
+            await SlashCommands.Client_Ready();
         }
 
         private static async Task Onready()

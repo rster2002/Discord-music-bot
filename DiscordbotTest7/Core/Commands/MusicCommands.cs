@@ -20,7 +20,7 @@ namespace DiscordbotTest7.Core.Commands
         [Command("leave")]
         public async Task LeaveCommand()
             => await Context.Channel.SendMessageAsync(await AudioManager.LeaveAsync(Context.Guild));
-
+        
         [Command("pause")]
         public async Task PauseCommand()
             => await Context.Channel.SendMessageAsync(await AudioManager.PauseAsync(Context.Guild));
@@ -114,6 +114,10 @@ namespace DiscordbotTest7.Core.Commands
     [Name("Regular")]
     public class RegularCommands : ModuleBase<SocketCommandContext>
     {
+        [Command("test")]
+        public async Task Test()
+            => Console.WriteLine(Context.Guild.Id);
+
         [Command("ping")]
         public async Task Ping()
         => await Context.Channel.SendMessageAsync("Pong!"); 
