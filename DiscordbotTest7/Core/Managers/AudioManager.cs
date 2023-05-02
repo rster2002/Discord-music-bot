@@ -223,6 +223,7 @@ namespace DiscordbotTest7.Core.Managers
 
             if (player.Vueue.ToList().Count < 1)
             {
+                if (loop) { loop = false; }
                 playlist = null;
                 var track = player.Track;
                 await player.StopAsync();
@@ -773,7 +774,7 @@ namespace DiscordbotTest7.Core.Managers
                 args.Player.Vueue.Enqueue(args.Track);
             }
 
-            if (args.Player.Vueue.Count < 1)
+            if (args.Player.Vueue.Count < 1 || args.Player.Vueue == null)
                 playlist = null;
 
             await args.Player.PlayAsync(track);
