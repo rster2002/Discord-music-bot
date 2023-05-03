@@ -4,6 +4,7 @@ using Discord;
 using Microsoft.Extensions.DependencyInjection;
 using Victoria;
 using DiscordbotTest7.Core.Managers;
+using DiscordbotTest7.Core.Commands;
 using Victoria.Node;
 using Microsoft.Extensions.Logging;
 
@@ -42,6 +43,7 @@ namespace DiscordbotTest7.Core
             collection.AddLavaNode(x =>
             {
                 x.SelfDeaf = false;
+                x.SocketConfiguration = new Victoria.WebSocket.WebSocketConfiguration { BufferSize = 1024 };
             });
             
 
@@ -51,12 +53,15 @@ namespace DiscordbotTest7.Core
         public async Task MainAsync()
         {
             if (string.IsNullOrWhiteSpace(ConfigManager.Config.Token)) return;
-
             await CommandManager.LoadCommandsAsync();
             await EventManager.LoadCommands();
             await _client.LoginAsync(TokenType.Bot, ConfigManager.Config.Token);
             await _client.StartAsync();
-            
+
+            AudioManager.loopPlaylist = false;
+            AudioManager.loop = false;
+            AudioManager.writePlaying = true;
+
             await Task.Delay(-1);
         }
     } 

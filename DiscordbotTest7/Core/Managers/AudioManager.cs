@@ -1,17 +1,20 @@
 ﻿using Discord;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using System.Linq;
 using Victoria;
 using Victoria.Node;
 using Victoria.Node.EventArgs;
 using Victoria.Player;
-using Victoria.Responses;
 using Victoria.Responses.Search;
 
 namespace DiscordbotTest7.Core.Managers
 {
     public static class AudioManager
     {
+        public static string? playlist { get; private set; }
+        public static bool writePlaying { get; set; }
+        public static bool loopPlaylist { get; set; }
         public static bool loop { get; set; }
         private static bool fixVanDeEeuw;
         private static readonly LavaNode _lavaNode = ServiceManager.Provider.GetRequiredService<LavaNode>();
@@ -24,6 +27,8 @@ namespace DiscordbotTest7.Core.Managers
 
             try
             {
+                if (playlist != null)
+                    playlist = null;
                 await _lavaNode.JoinAsync(voiceState.VoiceChannel, channel);
                 return $"Has entered {voiceState.VoiceChannel.Name}";
             }
@@ -64,6 +69,7 @@ namespace DiscordbotTest7.Core.Managers
             if (searchQuery[0] == 'h' && searchQuery[1] == 't' && searchQuery[2] == 't')
             {
                 searchResponse = await _lavaNode.SearchAsync(Uri.IsWellFormedUriString(searchQuery, UriKind.Absolute) ? SearchType.Direct : SearchType.YouTube, searchQuery);
+                Console.WriteLine(searchResponse.ToString());
             }
             else
             { 
@@ -73,6 +79,7 @@ namespace DiscordbotTest7.Core.Managers
                     await channel.SendMessageAsync("Couldn't find anything on Youtube now trying Soundcloud");
                     searchResponse = await _lavaNode.SearchAsync(SearchType.SoundCloud, searchQuery);
                 }
+                Console.WriteLine(searchResponse.ToString());
             }
 
             if (searchResponse.Status is SearchStatus.LoadFailed or SearchStatus.NoMatches)
@@ -83,14 +90,15 @@ namespace DiscordbotTest7.Core.Managers
             if (!string.IsNullOrWhiteSpace(searchResponse.Playlist.Name))
             {
                 player.Vueue.Enqueue(searchResponse.Tracks);
-                await channel.SendMessageAsync($"Envueued {searchResponse.Tracks.Count} songs.");
+                if (writePlaying)
+                    await channel.SendMessageAsync($"Envueued {searchResponse.Tracks.Count} songs.");
             }
             else
             {
                 var track = searchResponse.Tracks.FirstOrDefault();
                 player.Vueue.Enqueue(track);
-
-                await channel.SendMessageAsync($"Envueued {track?.Title}");
+                if (writePlaying)
+                    await channel.SendMessageAsync($"Envueued {track?.Title}\t `{track?.Duration}`");
             }
 
             if (player.PlayerState is PlayerState.Playing or PlayerState.Paused)
@@ -100,12 +108,13 @@ namespace DiscordbotTest7.Core.Managers
 
             player.Vueue.TryDequeue(out var lavaTrack);
             await player.PlayAsync(lavaTrack);
-            return $"now playing {player.Vueue.First<LavaTrack>().Title}";
+            return $"now playing {lavaTrack.Title}";
         }
         public static async Task<string> LeaveAsync(IGuild guild)
         {
             try
             {
+                playlist = null;
                 _lavaNode.TryGetPlayer(guild, out var player);
                 if (player.PlayerState is PlayerState.Playing) await player.StopAsync();
                 await _lavaNode.LeaveAsync(player.VoiceChannel);
@@ -187,7 +196,12 @@ namespace DiscordbotTest7.Core.Managers
 
             try
             {
+                playlist = null;
                 await player.StopAsync();
+                if (player.Vueue.Count > 0)
+                {
+                    player.Vueue.Clear();
+                }
                 return "No longer playing anything.";
             }
             catch (Exception exception)
@@ -207,6 +221,15 @@ namespace DiscordbotTest7.Core.Managers
                 return "Woaaah there, I can't skip when nothing is playing.";
             }
 
+            if (player.Vueue.ToList().Count < 1)
+            {
+                if (loop) { loop = false; }
+                playlist = null;
+                var track = player.Track;
+                await player.StopAsync();
+                return $"Skipped: {track.Title}";
+            }
+
             try
             {
                 var (skipped, currenTrack) = await player.SkipAsync(); fixVanDeEeuw = true;
@@ -221,28 +244,37 @@ namespace DiscordbotTest7.Core.Managers
         {
             if (!_lavaNode.TryGetPlayer(guild, out var player))
             {
-                channel.SendMessageAsync("Can't show the *'Vueue'* when i'm not playing"); return;
+                await channel.SendMessageAsync("Can't show the *'Vueue'* when i'm not playing"); return;
             }
 
             try
             {
-                channel.SendMessageAsync($"Now showing All {player.Vueue.Count} tracks in *'Vueue'*");
+                await channel.SendMessageAsync($"Now showing All {player.Vueue.Count} tracks in *'Vueue'*");
                 int i = 0;
+                string formatted = "";
                 foreach (var item in player.Vueue)
                 {
                     i++;
-                    channel.SendMessageAsync($"Track {i} = {item.Title}");
+                    formatted += $"Track {i} = {item.Title}\t `{item.Duration}`\n";
+                    if (formatted.Length >= 1850)
+                    {
+                        await channel.SendMessageAsync(formatted);
+                        formatted = "";
+                    }
                 }
+                await channel.SendMessageAsync(formatted);
                 return;
             }
             catch (Exception ex)
             {
-                channel.SendMessageAsync(ex.Message);
+                await channel.SendMessageAsync(ex.Message);
                 return;
             }
         }
-        public static async Task<string> SeekAsync(TimeSpan timeSpan, IGuild guild)
+        public static async Task<string> SeekAsync(string t, IGuild guild)
         {
+            TimeSpan timeSpan = TimeSpan.Parse(t);
+
             if (!_lavaNode.TryGetPlayer(guild, out var player))
             {
                 return "I'm not connected to a voice channel.";
@@ -280,16 +312,451 @@ namespace DiscordbotTest7.Core.Managers
                 return exception.Message;
             }
         }
-
-
-        public static async Task TrackEnded(TrackEndEventArg<LavaPlayer<LavaTrack>, LavaTrack> args)
+        public static async Task<string> ShuffleAsync(IGuild guild)
         {
-            if (loop)
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
             {
-                args.Player.SeekAsync(TimeSpan.Zero); return;
+                return "I'm not connected to a voice channel.";
             }
 
+            try
+            {
+                player.Vueue.Shuffle();
+                return "Shuffled the *'Vueue'*!";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+        public static async Task<string> GotoAsync(IGuild guild, int pos)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return "I'm not connected to a voice channel.";
+            }
+
+            if (pos > player.Vueue.Count) return "Not that many tracks in the *'Vueueu'*";
+
+            try
+            {
+                LavaTrack t = player.Vueue.ElementAt(pos -1);
+                fixVanDeEeuw = true;
+                player.Vueue.TryDequeue(out t);
+                await player.PlayAsync(t);
+                return $"Now playing: *{t.Title}* by *{t.Author}*";
+            }
+            catch (Exception ex)
+            {
+
+                return ex.Message;
+            }
+        }
+        public static async Task<string> GotoAsync(IGuild guild, string title)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return "I'm not connected to a voice channel.";
+            }
+
+            try
+            {
+                LavaTrack t = new LavaTrack();
+                foreach (var track in player.Vueue)
+                {
+                    if (track.Title.Contains(title, StringComparison.OrdinalIgnoreCase))
+                    {
+                        t = track;
+                        break;
+                    }
+                    else
+                    {
+                        string[] a = title.Split(' ');
+                        int count = 0;
+                        for (int i =0; i < a.Length; i++)
+                        {
+                            if (track.Title.Contains(a[i], StringComparison.OrdinalIgnoreCase))
+                            {
+                                count++;
+                            }
+                        }
+                        if (count == a.Length)
+                        {
+                            t = track;
+                            break;
+                        }
+                    }
+                }
+
+                if (t.Title is null || t.Title == "") return $"Couldn't find {title} in queue";
+
+                
+                fixVanDeEeuw = true;
+                player.Vueue.TryDequeue(out t);
+                await player.PlayAsync(t);
+                return $"Now playing: *{t.Title}* by *{t.Author}*";
+            }
+            catch (Exception ex)
+            {
+
+                return ex.Message;
+            }
+        }
+        public static async Task createplaylistAsync(IGuild guild, ITextChannel textChannel, string playlist)
+        {
+            if (Directory.Exists("Resources"))
+            {
+                created:;
+                if (Directory.Exists($"Resources/{guild.Id}"))
+                {
+                    if (!File.Exists($"Resources/{guild.Id}/{playlist}.txt"))
+                    {
+                        File.Create($"Resources/{guild.Id}/{playlist}.txt").Close();
+                        await textChannel.SendMessageAsync($"Created {playlist}");
+                    }
+                    else
+                    {
+                        await textChannel.SendMessageAsync("That file already exists");
+                    }
+                }
+                else
+                {
+                    Directory.CreateDirectory($"Resources/{guild.Id}");
+                    goto created;
+                }
+            }
+            else
+                await textChannel.SendMessageAsync("Error 404");
+        }
+        public static async Task playplaylistAsync(SocketGuildUser user, IGuild guild, ITextChannel textChannel, string playlist)
+        {
+            if (Directory.Exists($"Resources/{guild.Id}"))
+            {
+                if (!File.Exists($"Resources/{guild.Id}/{playlist}.txt"))
+                {
+                    await textChannel.SendMessageAsync("That file does not exist");
+                }
+                else
+                {
+                    AudioManager.playlist = playlist;
+                    string[] lines = File.ReadAllLines($"Resources/{guild.Id}/{playlist}.txt");
+                    foreach (string str in lines)
+                    {
+                        _lavaNode.TryGetPlayer(guild, out var player);
+                        if (player != null)
+                        {
+                            if (player.PlayerState is PlayerState.Playing)
+                            {
+                                if (str != null)
+                                    await PlayAsync(user, guild, str, textChannel);
+                            }
+                        }
+                        else
+                        {
+                            #region fuck zanger rinus
+                            if (string.IsNullOrWhiteSpace(str))
+                            {
+                                return;
+                            }
+
+
+                            var voiceState = user as IVoiceState;
+                            if (voiceState?.VoiceChannel == null)
+                            {
+                                return;
+                            }
+
+                            try
+                            {
+                                player = await _lavaNode.JoinAsync(voiceState.VoiceChannel, textChannel);
+                            }
+                            catch (Exception exception)
+                            {
+                                return;
+                            }
+
+                            SearchResponse searchResponse = new SearchResponse();
+
+                            if (str[0] == 'h' && str[1] == 't' && str[2] == 't')
+                            {
+                                searchResponse = await _lavaNode.SearchAsync(Uri.IsWellFormedUriString(str, UriKind.Absolute) ? SearchType.Direct : SearchType.YouTube, str);
+                                Console.WriteLine(searchResponse.ToString());
+                            }
+                            else
+                            {
+                                searchResponse = await _lavaNode.SearchAsync(SearchType.YouTube, str);
+                                if (searchResponse.Status == SearchStatus.NoMatches)
+                                {
+                                    await textChannel.SendMessageAsync("Couldn't find anything on Youtube now trying Soundcloud");
+                                    searchResponse = await _lavaNode.SearchAsync(SearchType.SoundCloud, str);
+                                }
+                                Console.WriteLine(searchResponse.ToString());
+                            }
+
+                            if (searchResponse.Status is SearchStatus.LoadFailed or SearchStatus.NoMatches)
+                            {
+                                return;
+                            }
+
+                            if (!string.IsNullOrWhiteSpace(searchResponse.Playlist.Name))
+                            {
+                                player.Vueue.Enqueue(searchResponse.Tracks);
+                                if (writePlaying)
+                                    await textChannel.SendMessageAsync($"Envueued {searchResponse.Tracks.Count} songs.");
+                            }
+                            else
+                            {
+                                var track = searchResponse.Tracks.FirstOrDefault();
+                                player.Vueue.Enqueue(track);
+                                if (writePlaying)
+                                    await textChannel.SendMessageAsync($"Envueued {track?.Title}\t `{track?.Duration}`");
+                            }
+                            player.Vueue.TryDequeue(out var lavaTrack);
+                            await player.PlayAsync(lavaTrack);
+                            continue;
+                            #endregion
+                        }
+                    }
+                }
+            }
+            else
+                await textChannel.SendMessageAsync("Error 404");
+        }
+        public static async Task<string> ListPlaylists(IGuild guild, ITextChannel textChannel)
+        {
+            if (Directory.Exists($"Resources/{guild.Id}"))
+            {
+                string[] playlists = Directory.GetFileSystemEntries($"Resources/{guild.Id}");
+                string msg = "";
+                for (int i = 0; i < playlists.Length; i++)
+                {
+                    string[] tmp = playlists[i].Split('\\');
+                    string[] results = tmp[1].Split('.');
+                    msg += results[0] + "\n";
+                }
+                return msg;
+            }
+            return "Error 404";
+        }
+        public static async Task removefromAsync(IGuild guild, ITextChannel textChannel, string playlist, string name)
+        {
+            if (Directory.Exists($"Resources/{guild.Id}"))
+            {
+                if (!File.Exists($"Resources/{guild.Id}/{playlist}.txt"))
+                {
+                    await textChannel.SendMessageAsync("That playlist does not exist");
+                }
+                else
+                {
+                    int count = 0;
+                    string[] lines = File.ReadAllLines($"Resources/{guild.Id}/{playlist}.txt");
+                    foreach (string item in lines)
+                    {
+                        if (item.ToLower() == name.ToLower() || item.ToLower().Contains(name.ToLower()))
+                            goto found;
+                        count++;
+                    }
+                found:;
+                    lines[count] = null;
+                    File.WriteAllLines($"Resources/{guild.Id}/{playlist}.txt" ,lines.ToArray());
+                }
+            }
+            else
+                await textChannel.SendMessageAsync("Error 404");
+        }
+        public static async Task addtoAsync(IGuild guild, ITextChannel textChannel, string playlist, string? name, SocketGuildUser user)
+        {
+            if (Directory.Exists($"Resources/{guild.Id}"))
+            {
+                if (!File.Exists($"Resources/{guild.Id}/{playlist}.txt"))
+                {
+                    await textChannel.SendMessageAsync("That playlist does not exist");
+                }
+                else
+                {
+
+                    if (name != null)
+                    {
+                        File.AppendAllText($"Resources/{guild.Id}/{playlist}.txt", name + Environment.NewLine);
+                        if (AudioManager.playlist == playlist)
+                        {
+                            if (!_lavaNode.TryGetPlayer(guild, out var player))
+                            {
+                                await textChannel.SendMessageAsync("I'm not connected to a voice channel.");
+                                return;
+                            }
+                            await PlayAsync(user, guild, name, textChannel);
+                            return;
+                        }
+                    }
+
+                    else
+                    {
+
+                        if (!_lavaNode.TryGetPlayer(guild, out var player))
+                        {
+                            await textChannel.SendMessageAsync("I'm not connected to a voice channel.");
+                            return;
+                        }
+                        File.AppendAllText($"Resources/{guild.Id}/{playlist}.txt", player.Track.Title.ToString() + Environment.NewLine);
+                        await textChannel.SendMessageAsync($"Added {player.Track.Title.ToString()} to {playlist}");
+                    }
+                }
+            }
+            else
+                await textChannel.SendMessageAsync("Error 404");
+        }
+        public static async Task addtoAsync(IGuild guild, ITextChannel textChannel, string? name, SocketGuildUser user)
+        {
+            if (playlist == null) 
+                return;
+
+            if (Directory.Exists($"Resources/{guild.Id}"))
+            {
+                if (!_lavaNode.TryGetPlayer(guild, out var player))
+                {
+                    await textChannel.SendMessageAsync("I'm not connected to a voice channel.");
+                    return;
+                }
+                if (!File.Exists($"Resources/{guild.Id}/{playlist}.txt"))
+                {
+                    await textChannel.SendMessageAsync("That playlist does not exist");
+                }
+                else
+                {
+
+                    if (name != null)
+                        File.AppendAllText($"Resources/{guild.Id}/{playlist}.txt", name + Environment.NewLine);
+                    else
+                    {
+                        
+                        File.AppendAllText($"Resources/{guild.Id}/{playlist}.txt", player.Track.Title.ToString() + Environment.NewLine);
+                        await textChannel.SendMessageAsync($"Added {player.Track.Title.ToString()} to {playlist}");
+                    }
+                }
+            }
+            else
+                await textChannel.SendMessageAsync("Error 404");
+        }
+        public static async Task<string> ClearAsync(IGuild guild)
+        {
+            playlist = null;
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return "I'm not connected to a voice channel.";
+            }
+
+            if (player.Vueue.Count < 1)
+            {
+                return "No tracks in the queue";
+            }
+            try
+            {
+                player.Vueue.Clear();
+                return "Cleared the queue";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message.ToString();
+            }
+        }
+        public static async Task<string> RemoveAsync(IGuild guild, string title)
+        {
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return "I'm not connected to a voice channel.";
+            }
+
+            try
+            {
+                LavaTrack t = new LavaTrack();
+                foreach (var track in player.Vueue)
+                {
+                    if (track.Title.Contains(title, StringComparison.OrdinalIgnoreCase))
+                    {
+                        t = track;
+                        break;
+                    }
+                    else
+                    {
+                        string[] a = title.Split(' ');
+                        int count = 0;
+                        for (int i = 0; i < a.Length; i++)
+                        {
+                            if (track.Title.Contains(a[i], StringComparison.OrdinalIgnoreCase))
+                            {
+                                count++;
+                            }
+                        }
+                        if (count == a.Length)
+                        {
+                            t = track;
+                            break;
+                        }
+                    }
+                }
+
+                if (t.Title is null || t.Title == "") return $"Couldn't find {title} in queue";
+
+
+                fixVanDeEeuw = true;
+                player.Vueue.Remove(t);
+                return $"Removed: *{t.Title}* by *{t.Author}* from the queue";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+        public static async Task<string> RemoveAsync(IGuild guild, int pos)
+        {
+
+            if (!_lavaNode.TryGetPlayer(guild, out var player))
+            {
+                return "I'm not connected to a voice channel.";
+            }
+
+            if (pos > player.Vueue.Count) return "Not that many tracks in the queue";
+
+            try
+            {
+                LavaTrack t = player.Vueue.ElementAt(pos-1);
+                fixVanDeEeuw = true;
+                player.Vueue.Remove(t);
+                return $"Removed: *{t.Title}* by *{t.Author}* from queue";
+            }
+            catch (Exception ex)
+            {
+                return ex.Message;
+            }
+        }
+        public static async Task AutoplayAsync()
+        {
+            _lavaNode.OnTrackEnd += TrackEnded;
+        }
+        public static Task OnTrackExceptionAsync(TrackExceptionEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            arg.Player.Vueue.Enqueue(arg.Track);
+            return arg.Player.TextChannel.SendMessageAsync($"{arg.Track} has been requeued because it threw an exception.");
+        }
+        public static Task OnTrackStuckAsync(TrackStuckEventArg<LavaPlayer<LavaTrack>, LavaTrack> arg)
+        {
+            arg.Player.Vueue.Enqueue(arg.Track);
+            return arg.Player.TextChannel.SendMessageAsync($"{arg.Track} has been requeued because it got stuck.");
+        }
+        public static async Task TrackEnded(TrackEndEventArg<LavaPlayer<LavaTrack>, LavaTrack> args)
+        {
             Console.WriteLine($"Finished playing: [{args.Track.Title}]");
+
+            if (loop)
+            {
+                Console.WriteLine($"Now playing: *{args.Track.Title}* by *{args.Track.Author}*");
+                await args.Player.PlayAsync(args.Track);
+                if (writePlaying)
+                    await args.Player.TextChannel.SendMessageAsync($"Now playing: *{args.Track.Title}* by *{args.Track.Author}*");
+                return;
+            }
+
             if (args.Reason == TrackEndReason.LoadFailed) return;
            
             if (!args.Player.Vueue.TryDequeue(out var queueable )) return;
@@ -302,58 +769,22 @@ namespace DiscordbotTest7.Core.Managers
                 return;
             }
 
+            if (loopPlaylist)
+            {
+                args.Player.Vueue.Enqueue(args.Track);
+            }
+
+            if (args.Player.Vueue.Count < 1 || args.Player.Vueue == null)
+                playlist = null;
+
             await args.Player.PlayAsync(track);
-            await args.Player.TextChannel.SendMessageAsync($"Now playing: *{track.Title}* by *{track.Author}*");
+
+            Console.WriteLine($"Now playing: *{track.Title}* by *{track.Author}*");
+
+            if (writePlaying)
+                await args.Player.TextChannel.SendMessageAsync($"Now playing: *{track.Title}* by *{track.Author}*");
+
+            return;
         }
     }
 }
-
-
-
-
-/*
- * if (user.VoiceChannel is null) return "You must be in a voicechannel!";
-
-            if (!_lavaNode.HasPlayer(guild)) return "I'm not connected to a voicechannel!";
-
-
-            try
-            {
-                if(!_lavaNode.TryGetPlayer(guild, out var player))
-                {
-                    var voiceState = user as IVoiceState;
-                    try
-                    {
-                        player = await _lavaNode.JoinAsync(voiceState.VoiceChannel);
-                    }
-                    catch (Exception ex)
-                    {
-                        return $"ERROR:\t{ex.Message}";
-                    }
-                } 
-
-                LavaTrack track;
-                
-                var search = await _lavaNode.SearchAsync(Uri.IsWellFormedUriString(query, UriKind.Absolute) ? SearchType.Direct : SearchType.YouTube, query);
-
-                if (search.Status == SearchStatus.LoadFailed) return $"Failed to load {query}";
-
-                track = search.Tracks.FirstOrDefault();
-
-                if (player.Track != null && player.PlayerState is PlayerState.Playing || player.PlayerState is PlayerState.Paused)
-                {
-                    player.Vueue.Enqueue(track);
-                    Console.WriteLine($"[{DateTime.Now}]\t(AUDIO)\tTrack was added to *'Vueue'*");
-                    return $"{track.Title} has been added to *'Vueue'*";
-                }
-
-                await player.PlayAsync(track);
-                Console.WriteLine($"Now playing: {track.Title}");
-                return $"Now playing: {track.Title}";
-            }
-
-            catch (Exception ex)
-            {
-                return $"ERROR:\t{ex.Message}";
-            }
-*/

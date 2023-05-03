@@ -20,7 +20,7 @@ namespace DiscordbotTest7.Core.Commands
         [Command("leave")]
         public async Task LeaveCommand()
             => await Context.Channel.SendMessageAsync(await AudioManager.LeaveAsync(Context.Guild));
-
+        
         [Command("pause")]
         public async Task PauseCommand()
             => await Context.Channel.SendMessageAsync(await AudioManager.PauseAsync(Context.Guild));
@@ -41,13 +41,24 @@ namespace DiscordbotTest7.Core.Commands
         public async Task VolumeCommand(ushort i)
             => await Context.Channel.SendMessageAsync(await AudioManager.VolumeAsync(i, Context.Guild));
 
+        [Command("shuffle")]
+        public async Task ShuffleCommand()
+            => Context.Channel.SendMessageAsync(await AudioManager.ShuffleAsync(Context.Guild));
+
         [Command("seek")]
-        public async Task SeekCommand(TimeSpan t)
+        public async Task SeekCommand(string t)
             => await Context.Channel.SendMessageAsync(await AudioManager.SeekAsync(t, Context.Guild));
 
         [Command("queue")]
         public async Task QueueCommand()
             => await AudioManager.QueueAsync(Context.Guild, Context.Channel as ITextChannel);
+
+        [Command("goto")]
+        public async Task GotoCommand(int i)
+            => await Context.Channel.SendMessageAsync(await AudioManager.GotoAsync(Context.Guild, i));
+        [Command("goto")]
+        public async Task GotoCommand([Remainder] string i)
+            => await Context.Channel.SendMessageAsync(await AudioManager.GotoAsync(Context.Guild, i));
 
         [Command("loop")]
         public async Task LoopCommand()
@@ -56,11 +67,46 @@ namespace DiscordbotTest7.Core.Commands
             {
                 await Context.Channel.SendMessageAsync("Disabled looping");
                 AudioManager.loop = false;
+                AudioManager.writePlaying = true;
             }
             else
             {
                 await Context.Channel.SendMessageAsync("Enabled looping");
                 AudioManager.loop = true;
+                AudioManager.writePlaying = false;
+            }
+        }
+
+        [Command("loopplaylist")]
+        public async Task LoopPlaylistCommand()
+        {
+            if (AudioManager.loopPlaylist)
+            {
+                await Context.Channel.SendMessageAsync("Disabled playlist looping");
+                AudioManager.loopPlaylist = false;
+                AudioManager.writePlaying = true;
+            }
+            else
+            {
+                await Context.Channel.SendMessageAsync("Enabled playlist looping");
+                AudioManager.loopPlaylist = true;
+                AudioManager.writePlaying = false;
+            }
+        }
+        [Command("verbose")]
+        public async Task VerboseCommand()
+        {
+            if (AudioManager.writePlaying)
+            {
+                AudioManager.writePlaying = false;
+                Console.WriteLine(AudioManager.writePlaying);
+                await Context.Channel.SendMessageAsync(AudioManager.writePlaying.ToString());
+            }
+            else
+            {
+                AudioManager.writePlaying = true;
+                Console.WriteLine(AudioManager.writePlaying);
+                await Context.Channel.SendMessageAsync(AudioManager.writePlaying.ToString());
             }
         }
     }
@@ -68,6 +114,10 @@ namespace DiscordbotTest7.Core.Commands
     [Name("Regular")]
     public class RegularCommands : ModuleBase<SocketCommandContext>
     {
+        [Command("test")]
+        public async Task Test()
+            => Console.WriteLine(Context.Guild.Id);
+
         [Command("ping")]
         public async Task Ping()
         => await Context.Channel.SendMessageAsync("Pong!"); 
@@ -76,5 +126,10 @@ namespace DiscordbotTest7.Core.Commands
         [Summary("connects to lavalink")]
         public async Task Connect() 
             => await AudioManager.ConnectAsync();
+
+        [Command("autoplay")]
+        public async Task AutoPlay()
+            => await AudioManager.AutoplayAsync();
+        
     }
 }
