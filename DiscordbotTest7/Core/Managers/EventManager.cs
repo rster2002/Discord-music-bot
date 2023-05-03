@@ -1,7 +1,9 @@
 ﻿using Discord;
+using Discord.Net;
 using Discord.Commands;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using DiscordbotTest7.Core.Commands;
 using Victoria.Node;
 
 namespace DiscordbotTest7.Core.Managers
@@ -26,8 +28,10 @@ namespace DiscordbotTest7.Core.Managers
                 return Task.CompletedTask;
             };
 
-            _client.Ready += Onready;
+            _client.Ready += ready;
             _client.MessageReceived += OnMessageRecieved;
+            _client.SlashCommandExecuted += SlashCommands.SlashCommandHandler;
+
             return Task.CompletedTask;
         }
 
@@ -40,8 +44,7 @@ namespace DiscordbotTest7.Core.Managers
 
             if (message.Author.IsBot || message.Channel is IDMChannel) return;
 
-            
-            Console.WriteLine($"[{DateTime.Now}]\t{message.HasCharPrefix('?', ref argPos).ToString()}");
+            //Console.WriteLine($"[{DateTime.Now}]\t{message.HasCharPrefix('?', ref argPos).ToString()}");
 
             if (!(message.HasCharPrefix(ConfigManager.Config.Prefix, ref argPos) || message.HasMentionPrefix(_client.CurrentUser, ref argPos))) return;
 
@@ -51,6 +54,12 @@ namespace DiscordbotTest7.Core.Managers
             {
                 if (result.Error == CommandError.UnknownCommand) return;
             }
+        }
+
+        private static async Task ready()
+        {
+            await Onready();
+            await SlashCommands.Client_Ready();
         }
 
         private static async Task Onready()
@@ -65,6 +74,8 @@ namespace DiscordbotTest7.Core.Managers
             }
 
             _lavaNode.OnTrackEnd += AudioManager.TrackEnded;
+            _lavaNode.OnTrackStuck += AudioManager.OnTrackStuckAsync;
+            _lavaNode.OnTrackException += AudioManager.OnTrackExceptionAsync;
 
             Console.WriteLine($"[{DateTime.Now}]\t(READY)\tBot is ready");
             await _client.SetStatusAsync(Discord.UserStatus.Online);
