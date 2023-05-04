@@ -25,11 +25,8 @@ namespace DiscordbotTest7.Core.Managers
                 var json = File.ReadAllText(ConfigPath);
                 Config = JsonConvert.DeserializeObject<BotConfig>(json);
             }
-
         }
-
     }
-
 
     public struct BotConfig
     {
