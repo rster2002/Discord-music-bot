@@ -52,7 +52,15 @@ namespace DiscordbotTest7.Core
         }
         public async Task MainAsync()
         {
-            if (string.IsNullOrWhiteSpace(ConfigManager.Config.Token)) return;
+            Console.WriteLine("Starting main async");
+
+            var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+
+            if (token == null) {
+                Console.WriteLine("No discord token provided");
+                return;
+            }
+
             await CommandManager.LoadCommandsAsync();
             await EventManager.LoadCommands();
             await _client.LoginAsync(TokenType.Bot, ConfigManager.Config.Token);
@@ -61,6 +69,8 @@ namespace DiscordbotTest7.Core
             AudioManager.loopPlaylist = false;
             AudioManager.loop = false;
             AudioManager.writePlaying = true;
+
+            Console.WriteLine("Delaying -1");
 
             await Task.Delay(-1);
         }
