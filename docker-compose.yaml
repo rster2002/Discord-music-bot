@@ -1,6 +1,9 @@
 ﻿services:
   lavalink:
-    build: ./Lavalink
+    image: docker.jumpdrive.dev/discord-bot-lavalink
 
   application:
     image: discord-bot
+#    image: docker.jumpdrive.dev/discord-bot-application
+    env_file:
+      - ./.env
