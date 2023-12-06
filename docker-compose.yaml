@@ -3,7 +3,7 @@
     image: docker.jumpdrive.dev/discord-bot-lavalink
 
   application:
-    image: discord-bot
-#    image: docker.jumpdrive.dev/discord-bot-application
+#    image: discord-bot
+    image: docker.jumpdrive.dev/discord-bot-application:dev-test
     env_file:
       - ./.env

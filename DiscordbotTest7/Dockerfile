@@ -2,13 +2,13 @@
 FROM mcr.microsoft.com/dotnet/runtime:6.0 AS base-runtime
 
 FROM base-sdk AS base-sdk-arm64
-ARG TARGET=linux-arm
+ARG TARGET=linux-arm64
 
 FROM base-sdk AS base-sdk-amd64
 ARG TARGET=linux-x64
 
 FROM base-runtime AS base-runtime-arm64
-ARG TARGET=linux-arm
+ARG TARGET=linux-arm64
 
 FROM base-runtime AS base-runtime-amd64
 ARG TARGET=linux-x64
