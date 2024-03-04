@@ -14,7 +14,7 @@ namespace DiscordbotTest7.Core
     {
         private DiscordSocketClient _client;
         private CommandService _commandService;
-
+         
 
         public Bot()
         {
@@ -30,7 +30,7 @@ namespace DiscordbotTest7.Core
                 CaseSensitiveCommands = false,
                 DefaultRunMode = RunMode.Async,
                 IgnoreExtraArgs = true
-
+                
             }) ;
 
             var collection = new ServiceCollection();
@@ -43,35 +43,26 @@ namespace DiscordbotTest7.Core
             collection.AddLavaNode(x =>
             {
                 x.SelfDeaf = false;
-                x.SocketConfiguration = new Victoria.WebSocket.WebSocketConfiguration { BufferSize = 1024 };
+                x.SocketConfiguration = new Victoria.WebSocket.WebSocketConfiguration { BufferSize = 1200 };
             });
-
+            
 
             ServiceManager.SetProvider(collection);
 
         }
         public async Task MainAsync()
         {
-            Console.WriteLine("Starting main async");
-
-            var token = Environment.GetEnvironmentVariable("DISCORD_TOKEN");
-
-            if (token == null) {
-                Console.WriteLine("No discord token provided");
-                return;
-            }
-
+            if (string.IsNullOrWhiteSpace(ConfigManager.Config.Token)) return;
             await CommandManager.LoadCommandsAsync();
             await EventManager.LoadCommands();
-            await _client.LoginAsync(TokenType.Bot, token);
+            await _client.LoginAsync(TokenType.Bot, ConfigManager.Config.Token);
             await _client.StartAsync();
 
             AudioManager.loopPlaylist = false;
             AudioManager.loop = false;
             AudioManager.writePlaying = true;
 
-            Console.WriteLine("Application started (^人^)");
             await Task.Delay(-1);
         }
-    }
+    } 
 }

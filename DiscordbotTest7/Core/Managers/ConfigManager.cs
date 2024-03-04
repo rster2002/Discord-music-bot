@@ -33,6 +33,6 @@ namespace DiscordbotTest7.Core.Managers
         [JsonProperty("token")]
         public string Token { get; private set; }
         [JsonProperty("prefix")]
-        public char Prefix { get { return '?'; } }
+        public char Prefix { get; private set; }
     }
 }
